@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 from github_service import get_repo_data
 from analyzer import analyze_repo, chat_with_repo
+from rag_service import build_vectorstore
 
 app = FastAPI()
 
@@ -21,17 +22,22 @@ class RepoRequest(BaseModel):
 
 class ChatRequest(BaseModel):
     question: str
-    repo_data: dict
+    repo_name: str
 
 
 @app.post("/analyze")
 async def analyze(request: RepoRequest):
 
+    # Existing repository analysis
     repo_data = await get_repo_data(request.url)
 
-    print(repo_data)
-
     result = analyze_repo(repo_data)
+
+    # Build vector database for RAG
+    repo_name = build_vectorstore(request.url)
+
+    # Save repo name for chatbot
+    result["repo_name"] = repo_name
 
     return result
 
@@ -41,7 +47,9 @@ async def chat(request: ChatRequest):
 
     answer = chat_with_repo(
         request.question,
-        request.repo_data
+        request.repo_name
     )
 
-    return {"answer": answer}
+    return {
+        "answer": answer
+    }

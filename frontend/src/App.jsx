@@ -64,13 +64,13 @@ function App() {
   try {
     const answer = await chatWithRepo(
       userQuestion,
-      result
+      result.repo_name
     );
 
     setMessages((prev) => [
       ...prev,
       {
-        role: "assistant",
+        role: "assistant",  
         text: answer,
       },
     ]);
@@ -140,7 +140,13 @@ function App() {
               </>
             )}
           </button>
+          
         </div>
+        {loading && (
+  <div className="mt-4 rounded-2xl border border-purple-400/20 bg-purple-500/10 p-4 text-center text-slate-300">
+    Building repository knowledge base...
+  </div>
+)}
 
         {/* Main Content */}
 

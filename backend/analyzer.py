@@ -4,6 +4,8 @@ import os
 
 from ollama import Client
 
+from rag_service import get_retriever
+
 client = Client(
     host=os.getenv(
         "OLLAMA_BASE_URL",
@@ -11,7 +13,10 @@ client = Client(
     )
 )
 
-MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
+MODEL = os.getenv(
+    "OLLAMA_MODEL",
+    "llama3.2:3b"
+)
 
 CHAT_MODEL = os.getenv(
     "CHAT_MODEL",
@@ -25,12 +30,17 @@ def analyze_repo(data):
     if "content" in data["readme"]:
         readme = base64.b64decode(
             data["readme"]["content"]
-        ).decode("utf-8", errors="ignore")
+        ).decode(
+            "utf-8",
+            errors="ignore"
+        )
 
     contents = data.get("contents", [])
 
     if not isinstance(contents, list):
-        raise Exception(f"GitHub API error: {contents}")
+        raise Exception(
+            f"GitHub API error: {contents}"
+        )
 
     ignore = {
         "venv",
@@ -90,31 +100,38 @@ Return ONLY valid JSON in this format:
     return result
 
 
-def chat_with_repo(question, repo_data):
+def chat_with_repo(question, repo_name):
+
+    retriever = get_retriever(repo_name)
+
+    docs = retriever.invoke(question)
+
+    context = "\n\n".join(
+        [
+            f"File: {doc.metadata['source']}\n"
+            f"{doc.page_content}"
+            for doc in docs
+        ]
+    )
 
     prompt = f"""
 You are a helpful repository assistant.
 
-Repository:
-{repo_data.get("repo_name", "")}
+Answer the user's question using ONLY the repository context below.
 
-Summary:
-{repo_data.get("summary", "")}
+Repository Context:
 
-README:
-{repo_data.get("readme", "")[:1000]}
+{context}
 
-Important files:
-{repo_data.get("important_files", [])}
-
-Answer the user's question using only the information above.
-
-If the answer is not available, say:
-
-"I couldn't find that information in the repository documentation."
-
-User question:
+User Question:
 {question}
+
+Rules:
+
+- Mention file names when relevant.
+- If the answer is not in the context, say:
+
+"I couldn't find that information in the repository."
 """
 
     response = client.chat(
